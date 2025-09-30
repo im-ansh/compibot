@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUp, ImagePlus, Mic, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUp, Mic, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel } from "@/components/ModelSelector";
 import ChatSidebar, { ChatHistory } from "@/components/ChatSidebar";
@@ -131,6 +131,31 @@ const Chat = () => {
     }
   };
 
+  const deleteChat = (chatId: string) => {
+    const storedChats = localStorage.getItem("compibot_chats");
+    if (storedChats) {
+      const allChats: StoredChat[] = JSON.parse(storedChats);
+      const filteredChats = allChats.filter(c => c.id !== chatId);
+      localStorage.setItem("compibot_chats", JSON.stringify(filteredChats));
+      loadChats();
+      
+      if (currentChatId === chatId) {
+        if (filteredChats.length > 0) {
+          selectChat(filteredChats[0].id);
+        } else {
+          createNewChat();
+        }
+      }
+    }
+  };
+
+  const handleEditMessage = (index: number, newContent: string) => {
+    const updatedMessages = messages.slice(0, index + 1);
+    updatedMessages[index] = { ...updatedMessages[index], content: newContent };
+    setMessages(updatedMessages);
+    saveCurrentChat(updatedMessages);
+  };
+
   const handleSend = async () => {
     if ((!input.trim() && selectedImages.length === 0) || loading) return;
 
@@ -228,7 +253,6 @@ const Chat = () => {
       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunks, { type: "audio/webm" });
-        // For now, just show a message - full speech-to-text would need additional API
         toast({ title: "Speech-to-text coming soon!" });
         stream.getTracks().forEach(track => track.stop());
       };
@@ -247,7 +271,6 @@ const Chat = () => {
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">
-      {/* Mobile sidebar overlay */}
       {isMobile && sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40"
@@ -255,7 +278,6 @@ const Chat = () => {
         />
       )}
       
-      {/* Sidebar */}
       <div className={`${
         isMobile 
           ? `fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
@@ -272,6 +294,7 @@ const Chat = () => {
             createNewChat();
             if (isMobile) setSidebarOpen(false);
           }}
+          onDeleteChat={deleteChat}
         />
       </div>
       
@@ -305,7 +328,12 @@ const Chat = () => {
           )}
           
           {messages.map((msg, idx) => (
-            <ChatMessage key={idx} role={msg.role} content={msg.content} />
+            <ChatMessage 
+              key={idx} 
+              role={msg.role} 
+              content={msg.content}
+              onEdit={msg.role === "user" && idx === messages.length - 1 ? (newContent) => handleEditMessage(idx, newContent) : undefined}
+            />
           ))}
 
           {gigaResponses.length > 0 && (
