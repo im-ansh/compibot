@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUp, ImagePlus, Mic, LogOut, Square } from "lucide-react";
+import { ArrowUp, ImagePlus, Mic, LogOut, Square, Menu, Plus, SlidersHorizontal } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel } from "@/components/ModelSelector";
 import ChatSidebar, { ChatHistory } from "@/components/ChatSidebar";
 import WelcomeMessage from "@/components/WelcomeMessage";
 import { sendMessage, sendGigaMessage, Message } from "@/lib/gemini";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -33,7 +34,9 @@ const Chat = () => {
   const [currentChatId, setCurrentChatId] = useState<string>("");
   const [isRecording, setIsRecording] = useState(false);
   const [gigaResponses, setGigaResponses] = useState<string[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -198,19 +201,50 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex h-screen bg-white">
-      <ChatSidebar
-        chats={chats}
-        currentChatId={currentChatId}
-        onSelectChat={selectChat}
-        onNewChat={createNewChat}
-      />
+    <div className="flex h-screen bg-white overflow-hidden">
+      {/* Mobile sidebar overlay */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       
-      <div className="flex-1 flex flex-col">
-        <header className="border-b border-border p-4 flex items-center justify-between">
+      {/* Sidebar */}
+      <div className={`${
+        isMobile 
+          ? `fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+          : 'relative'
+      }`}>
+        <ChatSidebar
+          chats={chats}
+          currentChatId={currentChatId}
+          onSelectChat={(id) => {
+            selectChat(id);
+            if (isMobile) setSidebarOpen(false);
+          }}
+          onNewChat={() => {
+            createNewChat();
+            if (isMobile) setSidebarOpen(false);
+          }}
+        />
+      </div>
+      
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="border-b border-border p-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-4">
+            {isMobile && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                className="h-8 w-8"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
             <img src="/compibot-icon.png" alt="Compibot" className="h-8 w-8" />
-            <h1 className="font-serif text-2xl font-bold">Compibot</h1>
+            <h1 className="font-serif text-2xl">Compibot</h1>
           </div>
           <Button variant="ghost" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
@@ -259,59 +293,67 @@ const Chat = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-border p-4 bg-background">
-          <div className="flex items-center gap-2 mb-3 max-w-4xl mx-auto">
+        <div className="border-t border-border p-4 bg-background flex-shrink-0">
+          <div className="max-w-4xl mx-auto space-y-3">
             <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
-          </div>
-          
-          <div className="relative max-w-4xl mx-auto">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Message Compibot..."
-              className="min-h-[60px] pr-32 resize-none rounded-3xl"
-              rows={1}
-            />
-            <div className="absolute right-2 bottom-2 flex gap-1">
+            
+            <div className="relative flex items-center gap-2 bg-background border border-input rounded-[2rem] p-2 shadow-sm">
               <Button 
                 size="icon" 
                 variant="ghost" 
-                className="h-9 w-9 rounded-full"
+                className="h-10 w-10 rounded-full flex-shrink-0 hover:bg-secondary"
+                onClick={createNewChat}
               >
-                <ImagePlus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
               </Button>
               <Button 
                 size="icon" 
                 variant="ghost" 
-                className="h-9 w-9 rounded-full"
+                className="h-10 w-10 rounded-full flex-shrink-0 hover:bg-secondary"
+              >
+                <SlidersHorizontal className="h-5 w-5" />
+              </Button>
+              
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Message Compibot..."
+                className="flex-1 min-h-[40px] max-h-[200px] border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-2"
+                rows={1}
+              />
+              
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-10 w-10 rounded-full flex-shrink-0 hover:bg-secondary"
                 onClick={startRecording}
                 disabled={isRecording}
               >
-                <Mic className={`h-4 w-4 ${isRecording ? "text-red-500" : ""}`} />
+                <Mic className={`h-5 w-5 ${isRecording ? "text-red-500" : ""}`} />
               </Button>
               {loading ? (
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className="h-9 w-9 rounded-full"
+                  className="h-10 w-10 rounded-full flex-shrink-0 hover:bg-secondary"
                   onClick={() => setLoading(false)}
                 >
-                  <Square className="h-4 w-4" />
+                  <Square className="h-5 w-5" />
                 </Button>
               ) : (
                 <Button 
                   size="icon" 
-                  className="h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="h-10 w-10 rounded-full flex-shrink-0 bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
                   onClick={handleSend} 
                   disabled={!input.trim()}
                 >
-                  <ArrowUp className="h-4 w-4" />
+                  <ArrowUp className="h-5 w-5" />
                 </Button>
               )}
             </div>
