@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { verifyApiKey } from "@/lib/gemini";
 
 const authSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -15,6 +16,8 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKeyStep, setShowApiKeyStep] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -22,7 +25,13 @@ const Auth = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate("/");
+        const hasApiKey = localStorage.getItem("gemini_api_key");
+        const isOwner = session.user.email === "aaronvanoss@gmail.com";
+        if (hasApiKey || isOwner) {
+          navigate("/");
+        } else {
+          setShowApiKeyStep(true);
+        }
       }
     };
     checkUser();
@@ -36,7 +45,7 @@ const Auth = () => {
       authSchema.parse({ email, password });
 
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -44,11 +53,18 @@ const Auth = () => {
         if (error) {
           toast({ title: error.message, variant: "destructive" });
         } else {
-          toast({ title: "Welcome back!" });
-          navigate("/");
+          const hasApiKey = localStorage.getItem("gemini_api_key");
+          const isOwner = data.user?.email === "aaronvanoss@gmail.com";
+          
+          if (hasApiKey || isOwner) {
+            toast({ title: "Welcome back!" });
+            navigate("/");
+          } else {
+            setShowApiKeyStep(true);
+          }
         }
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -59,8 +75,15 @@ const Auth = () => {
         if (error) {
           toast({ title: error.message, variant: "destructive" });
         } else {
-          toast({ title: "Account created! Check your email to confirm." });
-          navigate("/");
+          const isOwner = data.user?.email === "aaronvanoss@gmail.com";
+          
+          if (isOwner) {
+            toast({ title: "Account created! Check your email to confirm." });
+            navigate("/");
+          } else {
+            toast({ title: "Account created! Now add your Gemini API key." });
+            setShowApiKeyStep(true);
+          }
         }
       }
     } catch (error) {
@@ -72,12 +95,81 @@ const Auth = () => {
     }
   };
 
+  const handleApiKeySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const isValid = await verifyApiKey(apiKey);
+      
+      if (isValid) {
+        localStorage.setItem("gemini_api_key", apiKey);
+        toast({ title: "API key verified successfully!" });
+        navigate("/");
+      } else {
+        toast({ 
+          title: "Invalid API key", 
+          description: "Please check your Gemini API key and try again.",
+          variant: "destructive" 
+        });
+      }
+    } catch (error) {
+      toast({ 
+        title: "Verification failed", 
+        description: "Unable to verify API key. Please try again.",
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (showApiKeyStep) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <img src="/compibot-icon.png" alt="Compibot" className="mx-auto h-20 w-20 mb-4" />
+            <h1 className="font-serif text-4xl mb-2">Setup Your API Key</h1>
+            <p className="text-muted-foreground">
+              Enter your Gemini API key to use Compibot
+            </p>
+            <a 
+              href="https://aistudio.google.com/app/apikey" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 hover:underline mt-2 inline-block"
+            >
+              Get your API key from Google AI Studio
+            </a>
+          </div>
+
+          <form onSubmit={handleApiKeySubmit} className="space-y-4">
+            <div>
+              <Input
+                type="text"
+                placeholder="Paste your Gemini API key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                required
+                className="w-full"
+              />
+            </div>
+            <Button type="submit" disabled={loading} className="w-full bg-black text-white hover:bg-black/90">
+              {loading ? "Verifying..." : "Verify & Continue"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <img src="/compibot-icon.png" alt="Compibot" className="mx-auto h-20 w-20 mb-4" />
-          <h1 className="font-serif text-4xl font-bold mb-2">Compibot</h1>
+          <h1 className="font-serif text-4xl mb-2">Compibot</h1>
           <p className="text-muted-foreground">Your intelligent AI companion</p>
         </div>
 

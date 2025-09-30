@@ -1,12 +1,41 @@
 import { AIModel } from "@/components/ModelSelector";
 
-const API_KEY = "AIzaSyCBBA-TOUfG0q47ulqLP29vwKPbjDbWzoc";
+const OWNER_EMAIL = "aaronvanoss@gmail.com";
+const OWNER_API_KEY = "AIzaSyCBBA-TOUfG0q47ulqLP29vwKPbjDbWzoc";
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
 
 export interface Message {
   role: "user" | "model";
-  parts: Array<{ text: string }>;
+  parts: Array<{ text: string } | { inline_data: { mime_type: string; data: string } }>;
 }
+
+const getApiKey = (userEmail: string | null): string => {
+  if (userEmail === OWNER_EMAIL) {
+    return OWNER_API_KEY;
+  }
+  const storedKey = localStorage.getItem("gemini_api_key");
+  if (!storedKey) {
+    throw new Error("No API key found. Please add your API key in settings.");
+  }
+  return storedKey;
+};
+
+export const verifyApiKey = async (apiKey: string): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: "Hello" }] }],
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
 
 const getSystemPrompt = (model: AIModel): string => {
   switch (model) {
@@ -23,8 +52,10 @@ const getSystemPrompt = (model: AIModel): string => {
 
 export const sendMessage = async (
   messages: Message[],
-  model: AIModel
+  model: AIModel,
+  userEmail: string | null
 ): Promise<string> => {
+  const apiKey = getApiKey(userEmail);
   const systemPrompt = getSystemPrompt(model);
   
   const formattedMessages = [
@@ -32,7 +63,7 @@ export const sendMessage = async (
     ...messages
   ];
 
-  const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+  const response = await fetch(`${API_URL}?key=${apiKey}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -51,8 +82,10 @@ export const sendMessage = async (
 };
 
 export const sendGigaMessage = async (
-  messages: Message[]
+  messages: Message[],
+  userEmail: string | null
 ): Promise<string[]> => {
+  const apiKey = getApiKey(userEmail);
   const systemPrompt = getSystemPrompt("giga");
   
   const formattedMessages = [
@@ -62,7 +95,7 @@ export const sendGigaMessage = async (
 
   // Make 4 parallel requests
   const promises = Array(4).fill(null).map(() =>
-    fetch(`${API_URL}?key=${API_KEY}`, {
+    fetch(`${API_URL}?key=${apiKey}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

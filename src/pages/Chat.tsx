@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUp, ImagePlus, Mic, LogOut, Square, Menu, Plus, SlidersHorizontal } from "lucide-react";
+import { ArrowUp, ImagePlus, Mic, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel } from "@/components/ModelSelector";
 import ChatSidebar, { ChatHistory } from "@/components/ChatSidebar";
@@ -35,8 +35,12 @@ const Chat = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [gigaResponses, setGigaResponses] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<Array<{ data: string; mimeType: string }>>([]);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -45,6 +49,8 @@ const Chat = () => {
         navigate("/auth");
         return;
       }
+
+      setUserEmail(session.user.email || null);
 
       loadChats();
       if (!currentChatId) {
@@ -57,6 +63,8 @@ const Chat = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
         navigate("/auth");
+      } else {
+        setUserEmail(session.user.email || null);
       }
     });
 
@@ -124,7 +132,7 @@ const Chat = () => {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    if ((!input.trim() && selectedImages.length === 0) || loading) return;
 
     const userMessage: ChatMessage = { role: "user", content: input };
     const newMessages = [...messages, userMessage];
@@ -139,26 +147,63 @@ const Chat = () => {
         parts: [{ text: msg.content }]
       }));
       
+      const currentMessageParts: Array<{ text: string } | { inline_data: { mime_type: string; data: string } }> = [];
+      
+      if (input.trim()) {
+        currentMessageParts.push({ text: input });
+      }
+      
+      selectedImages.forEach(img => {
+        currentMessageParts.push({
+          inline_data: {
+            mime_type: img.mimeType,
+            data: img.data
+          }
+        });
+      });
+
       geminiMessages.push({
         role: "user",
-        parts: [{ text: input }]
+        parts: currentMessageParts
       });
 
       if (selectedModel === "giga") {
-        const responses = await sendGigaMessage(geminiMessages);
+        const responses = await sendGigaMessage(geminiMessages, userEmail);
         setGigaResponses(responses);
       } else {
-        const response = await sendMessage(geminiMessages, selectedModel);
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
         saveCurrentChat(updatedMessages);
       }
+      
+      setSelectedImages([]);
     } catch (error) {
       toast({ title: "Failed to get response", variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      if (file.size > 20 * 1024 * 1024) {
+        toast({ title: "Image too large", description: "Maximum size is 20MB", variant: "destructive" });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        const data = base64.split(',')[1];
+        setSelectedImages(prev => [...prev, { data, mimeType: file.type }]);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const selectGigaResponse = (response: string) => {
@@ -295,14 +340,49 @@ const Chat = () => {
 
         <div className="border-t border-border p-4 bg-background flex-shrink-0">
           <div className="max-w-4xl mx-auto space-y-3">
-            <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+            {showModelSelector && (
+              <div className="mb-2">
+                <ModelSelector selectedModel={selectedModel} onModelChange={(model) => {
+                  setSelectedModel(model);
+                  setShowModelSelector(false);
+                }} />
+              </div>
+            )}
+            
+            {selectedImages.length > 0 && (
+              <div className="flex gap-2 flex-wrap mb-2">
+                {selectedImages.map((img, idx) => (
+                  <div key={idx} className="relative">
+                    <img 
+                      src={`data:${img.mimeType};base64,${img.data}`} 
+                      alt="Selected" 
+                      className="h-20 w-20 object-cover rounded-lg border"
+                    />
+                    <button
+                      onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             
             <div className="relative flex items-center gap-2 bg-background border border-input rounded-[2rem] p-2 shadow-sm">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageSelect}
+                className="hidden"
+              />
               <Button 
                 size="icon" 
                 variant="ghost" 
                 className="h-10 w-10 rounded-full flex-shrink-0 hover:bg-secondary"
-                onClick={createNewChat}
+                onClick={() => fileInputRef.current?.click()}
               >
                 <Plus className="h-5 w-5" />
               </Button>
@@ -310,6 +390,7 @@ const Chat = () => {
                 size="icon" 
                 variant="ghost" 
                 className="h-10 w-10 rounded-full flex-shrink-0 hover:bg-secondary"
+                onClick={() => setShowModelSelector(!showModelSelector)}
               >
                 <SlidersHorizontal className="h-5 w-5" />
               </Button>
@@ -351,7 +432,7 @@ const Chat = () => {
                   size="icon" 
                   className="h-10 w-10 rounded-full flex-shrink-0 bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
                   onClick={handleSend} 
-                  disabled={!input.trim()}
+                  disabled={!input.trim() && selectedImages.length === 0}
                 >
                   <ArrowUp className="h-5 w-5" />
                 </Button>
