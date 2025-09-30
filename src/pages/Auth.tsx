@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
 
 const authSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -17,6 +18,16 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/");
+      }
+    };
+    checkUser();
+  }, [navigate]);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -24,25 +35,31 @@ const Auth = () => {
     try {
       authSchema.parse({ email, password });
 
-      // Simple local storage auth (not secure, for demo only)
-      const users = JSON.parse(localStorage.getItem("compibot_users") || "{}");
-
       if (isLogin) {
-        if (users[email] && users[email] === password) {
-          localStorage.setItem("compibot_user", email);
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast({ title: error.message, variant: "destructive" });
+        } else {
           toast({ title: "Welcome back!" });
           navigate("/");
-        } else {
-          toast({ title: "Invalid credentials", variant: "destructive" });
         }
       } else {
-        if (users[email]) {
-          toast({ title: "User already exists", variant: "destructive" });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          },
+        });
+
+        if (error) {
+          toast({ title: error.message, variant: "destructive" });
         } else {
-          users[email] = password;
-          localStorage.setItem("compibot_users", JSON.stringify(users));
-          localStorage.setItem("compibot_user", email);
-          toast({ title: "Account created successfully!" });
+          toast({ title: "Account created! Check your email to confirm." });
           navigate("/");
         }
       }

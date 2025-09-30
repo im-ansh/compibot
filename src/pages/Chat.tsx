@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUp, ImagePlus, Mic, LogOut } from "lucide-react";
+import { ArrowUp, ImagePlus, Mic, LogOut, Square } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel } from "@/components/ModelSelector";
 import ChatSidebar, { ChatHistory } from "@/components/ChatSidebar";
 import WelcomeMessage from "@/components/WelcomeMessage";
 import { sendMessage, sendGigaMessage, Message } from "@/lib/gemini";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -35,15 +36,28 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const user = localStorage.getItem("compibot_user");
-    if (!user) {
-      navigate("/auth");
-    }
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
 
-    loadChats();
-    if (!currentChatId) {
-      createNewChat();
-    }
+      loadChats();
+      if (!currentChatId) {
+        createNewChat();
+      }
+    };
+    
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -152,8 +166,8 @@ const Chat = () => {
     setGigaResponses([]);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("compibot_user");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate("/auth");
   };
 
@@ -245,15 +259,12 @@ const Chat = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-border p-4">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="border-t border-border p-4 bg-background">
+          <div className="flex items-center gap-2 mb-3 max-w-4xl mx-auto">
             <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
-            <Button variant="outline" size="icon">
-              <ImagePlus className="h-4 w-4" />
-            </Button>
           </div>
           
-          <div className="flex gap-2">
+          <div className="relative max-w-4xl mx-auto">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -263,27 +274,46 @@ const Chat = () => {
                   handleSend();
                 }
               }}
-              placeholder="Type your message..."
-              className="flex-1 resize-none"
-              rows={3}
+              placeholder="Message Compibot..."
+              className="min-h-[60px] pr-32 resize-none rounded-3xl"
+              rows={1}
             />
-            <div className="flex flex-col gap-2">
-              <Button
+            <div className="absolute right-2 bottom-2 flex gap-1">
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-9 w-9 rounded-full"
+              >
+                <ImagePlus className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-9 w-9 rounded-full"
                 onClick={startRecording}
-                size="icon"
-                variant="outline"
                 disabled={isRecording}
               >
                 <Mic className={`h-4 w-4 ${isRecording ? "text-red-500" : ""}`} />
               </Button>
-              <Button
-                onClick={handleSend}
-                size="icon"
-                disabled={loading || !input.trim()}
-                className="bg-black text-white hover:bg-black/90"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
+              {loading ? (
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => setLoading(false)}
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button 
+                  size="icon" 
+                  className="h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={handleSend} 
+                  disabled={!input.trim()}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

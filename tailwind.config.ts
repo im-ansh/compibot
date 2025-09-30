@@ -15,7 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Lexend Deca', 'sans-serif'],
-        serif: ['Playfair Display', 'serif'],
+        serif: ['Source Serif Pro', 'serif'],
       },
       colors: {
         border: "hsl(var(--border))",
