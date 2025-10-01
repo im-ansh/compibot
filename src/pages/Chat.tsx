@@ -484,7 +484,10 @@ const Chat = () => {
                 <Button 
                   size="icon" 
                   className="h-10 w-10 rounded-full flex-shrink-0 disabled:opacity-50"
-                  style={{ backgroundColor: "var(--theme-accent)", color: "#000" }}
+                  style={{ 
+                    backgroundColor: "var(--theme-accent)", 
+                    color: localStorage.getItem("compibot_theme") === "black" ? "#fff" : "#000" 
+                  }}
                   onClick={handleSend} 
                   disabled={!input.trim() && selectedImages.length === 0}
                 >
