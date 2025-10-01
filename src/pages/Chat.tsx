@@ -41,6 +41,21 @@ const Chat = () => {
     };
     checkAuth();
 
+    // Apply saved theme
+    const savedTheme = localStorage.getItem("app_theme") || "black";
+    const themeColors = [
+      { id: "black", hsl: "0 0% 0%" },
+      { id: "blue", hsl: "210 100% 85%" },
+      { id: "pink", hsl: "340 100% 85%" },
+      { id: "green", hsl: "140 60% 75%" },
+      { id: "purple", hsl: "270 60% 80%" },
+      { id: "yellow", hsl: "50 100% 80%" },
+    ];
+    const theme = themeColors.find(t => t.id === savedTheme);
+    if (theme) {
+      document.documentElement.style.setProperty('--theme-accent', theme.hsl);
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
         navigate("/auth");
@@ -141,11 +156,19 @@ const Chat = () => {
   const handleSend = async (isEdit = false, editIndex?: number) => {
     if ((!input.trim() && selectedImages.length === 0) || isLoading) return;
 
+    const inputText = input;
+    const imagesToSend = [...selectedImages];
+    
+    // Clear input and images immediately
+    setInput("");
+    setSelectedImages([]);
+    setEditingMessageIndex(null);
+
     const newUserMessage: Message = {
       role: "user",
       parts: [
-        { text: input },
-        ...selectedImages.map(img => ({
+        { text: inputText },
+        ...imagesToSend.map(img => ({
           inline_data: {
             mime_type: img.split(';')[0].split(':')[1],
             data: img.split(',')[1]
@@ -159,14 +182,11 @@ const Chat = () => {
     if (isEdit && editIndex !== undefined) {
       // Replace the edited message and remove all messages after it
       updatedMessages = [...messages.slice(0, editIndex), newUserMessage];
-      setEditingMessageIndex(null);
     } else {
       updatedMessages = [...messages, newUserMessage];
     }
 
     setMessages(updatedMessages);
-    setInput("");
-    setSelectedImages([]);
     setIsLoading(true);
 
     try {
@@ -417,6 +437,10 @@ const Chat = () => {
                 className="h-10 w-10 rounded-full shrink-0"
                 onClick={() => editingMessageIndex !== null ? handleSend(true, editingMessageIndex) : handleSend()}
                 disabled={isLoading || (!input.trim() && selectedImages.length === 0)}
+                style={!isLoading && (input.trim() || selectedImages.length > 0) ? {
+                  backgroundColor: `hsl(var(--theme-accent))`,
+                  color: localStorage.getItem("app_theme") === 'black' ? 'white' : 'black'
+                } : undefined}
               >
                 {isLoading ? <Square className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
               </Button>

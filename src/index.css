@@ -50,3 +50,20 @@ All colors MUST be HSL.
     @apply bg-white text-black font-sans;
   }
 }
+
+@layer components {
+  .themed-button {
+    background-color: hsl(var(--theme-accent));
+    color: hsl(var(--foreground));
+  }
+  
+  .themed-button:hover {
+    opacity: 0.9;
+  }
+  
+  /* Handle text color for dark themes */
+  [data-theme="black"] .themed-button,
+  .themed-button[data-dark="true"] {
+    color: hsl(var(--background));
+  }
+}

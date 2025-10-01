@@ -16,6 +16,7 @@ const PERSONAS = [
 ];
 
 const THEME_COLORS = [
+  { id: "black", name: "Black", hsl: "0 0% 0%" },
   { id: "blue", name: "Pastel Blue", hsl: "210 100% 85%" },
   { id: "pink", name: "Pastel Pink", hsl: "340 100% 85%" },
   { id: "green", name: "Pastel Green", hsl: "140 60% 75%" },
@@ -26,12 +27,12 @@ const THEME_COLORS = [
 export default function Settings() {
   const navigate = useNavigate();
   const [selectedPersona, setSelectedPersona] = useState("helpful");
-  const [selectedTheme, setSelectedTheme] = useState("blue");
+  const [selectedTheme, setSelectedTheme] = useState("black");
   const [customPrompt, setCustomPrompt] = useState("");
 
   useEffect(() => {
     const savedPersona = localStorage.getItem("ai_persona") || "helpful";
-    const savedTheme = localStorage.getItem("app_theme") || "blue";
+    const savedTheme = localStorage.getItem("app_theme") || "black";
     const savedCustomPrompt = localStorage.getItem("custom_prompt") || "";
     
     setSelectedPersona(savedPersona);
@@ -144,7 +145,7 @@ export default function Settings() {
           <Button variant="outline" onClick={() => navigate("/")} className="flex-1">
             Cancel
           </Button>
-          <Button onClick={handleSave} className="flex-1 bg-black text-white hover:bg-black/90">
+          <Button onClick={handleSave} className="flex-1" style={{ backgroundColor: `hsl(var(--theme-accent))`, color: selectedTheme === 'black' ? 'white' : 'black' }}>
             Save Changes
           </Button>
         </div>
