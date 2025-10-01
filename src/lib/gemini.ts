@@ -79,10 +79,23 @@ export const sendMessage = async (
   const apiKey = getApiKey(userEmail);
   const systemPrompt = getSystemPrompt(model);
   
+  // Filter out parts with empty text to avoid API errors
+  const cleanedMessages = messages.map(msg => ({
+    ...msg,
+    parts: msg.parts.filter(part => {
+      if ('text' in part) {
+        return part.text.trim().length > 0;
+      }
+      return true; // Keep inline_data parts
+    })
+  })).filter(msg => msg.parts.length > 0);
+  
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
-    ...messages
+    ...cleanedMessages
   ];
+
+  console.log("Sending to API:", JSON.stringify(formattedMessages, null, 2));
 
   const response = await fetch(`${API_URL}?key=${apiKey}`, {
     method: "POST",
@@ -95,10 +108,14 @@ export const sendMessage = async (
   });
 
   if (!response.ok) {
-    throw new Error("Failed to get response from AI");
+    const errorText = await response.text();
+    console.error("API Error Response:", errorText);
+    throw new Error(`Failed to get response from AI: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log("API Response:", data);
+  
   const candidate = data.candidates[0];
   const parts = candidate.content.parts;
   
@@ -118,9 +135,20 @@ export const sendGigaMessage = async (
   const apiKey = getApiKey(userEmail);
   const systemPrompt = getSystemPrompt("giga");
   
+  // Filter out parts with empty text to avoid API errors
+  const cleanedMessages = messages.map(msg => ({
+    ...msg,
+    parts: msg.parts.filter(part => {
+      if ('text' in part) {
+        return part.text.trim().length > 0;
+      }
+      return true; // Keep inline_data parts
+    })
+  })).filter(msg => msg.parts.length > 0);
+  
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
-    ...messages
+    ...cleanedMessages
   ];
 
   // Make 4 parallel requests

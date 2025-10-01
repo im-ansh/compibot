@@ -260,10 +260,10 @@ const Chat = () => {
         }
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error sending message:", error);
       toast({
         title: "Error",
-        description: "Failed to get response from AI",
+        description: error instanceof Error ? error.message : "Failed to get response from AI",
         variant: "destructive"
       });
     } finally {
@@ -439,7 +439,7 @@ const Chat = () => {
                 disabled={isLoading || (!input.trim() && selectedImages.length === 0)}
                 style={!isLoading && (input.trim() || selectedImages.length > 0) ? {
                   backgroundColor: `hsl(var(--theme-accent))`,
-                  color: localStorage.getItem("app_theme") === 'black' ? 'white' : 'black'
+                  color: 'white'
                 } : undefined}
               >
                 {isLoading ? <Square className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
