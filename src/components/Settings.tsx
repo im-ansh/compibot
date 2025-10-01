@@ -18,6 +18,7 @@ const PERSONAS = [
 ];
 
 const THEME_COLORS = [
+  { id: "black", name: "Black", color: "hsl(0, 0%, 0%)" },
   { id: "lavender", name: "Lavender", color: "hsl(270, 60%, 85%)" },
   { id: "mint", name: "Mint", color: "hsl(150, 60%, 85%)" },
   { id: "peach", name: "Peach", color: "hsl(20, 80%, 85%)" },
@@ -33,7 +34,7 @@ const Settings = ({ onClose }: SettingsProps) => {
     localStorage.getItem("compibot_custom_prompt") || ""
   );
   const [selectedTheme, setSelectedTheme] = useState(
-    localStorage.getItem("compibot_theme") || "lavender"
+    localStorage.getItem("compibot_theme") || "black"
   );
 
   const handleSave = () => {

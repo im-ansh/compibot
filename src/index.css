@@ -38,7 +38,7 @@ All colors MUST be HSL.
 
     --radius: 1rem;
     
-    --theme-accent: hsl(270, 60%, 85%);
+    --theme-accent: hsl(0, 0%, 0%);
   }
 }
 

@@ -131,3 +131,90 @@ export const sendGigaMessage = async (
   
   return results.map(data => data.candidates[0].content.parts[0].text);
 };
+
+export const sendAlphaMessage = async (
+  messages: Message[],
+  model: AIModel,
+  userEmail: string | null,
+  persona: string = "helpful",
+  customPrompt: string = ""
+): Promise<string> => {
+  const apiKey = getApiKey(userEmail);
+  
+  // Step 1: Use lightweight model with tool calling to improve the prompt
+  const lastUserMessage = messages[messages.length - 1];
+  const userPrompt = lastUserMessage.parts.find(p => 'text' in p)?.text || "";
+  
+  const improvePromptPayload = {
+    contents: [
+      { 
+        role: "user", 
+        parts: [{ 
+          text: `Analyze and improve this user prompt to make it clearer and more effective for an AI to respond to. Return the improved prompt.\n\nOriginal prompt: ${userPrompt}` 
+        }] 
+      }
+    ],
+    tools: [
+      {
+        function_declarations: [
+          {
+            name: "improve_prompt",
+            description: "Improve and enhance a user prompt for better AI responses",
+            parameters: {
+              type: "object",
+              properties: {
+                improved_prompt: {
+                  type: "string",
+                  description: "The enhanced and improved version of the original prompt"
+                }
+              },
+              required: ["improved_prompt"]
+            }
+          }
+        ]
+      }
+    ]
+  };
+
+  const improveResponse = await fetch(`${API_URL}?key=${apiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(improvePromptPayload),
+  });
+
+  if (!improveResponse.ok) {
+    throw new Error("Failed to improve prompt");
+  }
+
+  const improveData = await improveResponse.json();
+  const functionCall = improveData.candidates[0].content.parts[0].functionCall;
+  const improvedPrompt = functionCall?.args?.improved_prompt || userPrompt;
+
+  // Step 2: Send the improved prompt to get the final response
+  const systemPrompt = getSystemPrompt(model, persona, customPrompt);
+  
+  const finalMessages = [
+    { role: "user", parts: [{ text: systemPrompt }] },
+    ...messages.slice(0, -1),
+    { role: "user", parts: [{ text: improvedPrompt }] }
+  ];
+
+  const response = await fetch(`${API_URL}?key=${apiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: finalMessages,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get response from AI");
+  }
+
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
+};

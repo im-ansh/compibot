@@ -9,7 +9,7 @@ import ModelSelector, { AIModel } from "@/components/ModelSelector";
 import ChatSidebar, { ChatHistory } from "@/components/ChatSidebar";
 import WelcomeMessage from "@/components/WelcomeMessage";
 import Settings from "@/components/Settings";
-import { sendMessage, sendGigaMessage, Message } from "@/lib/gemini";
+import { sendMessage, sendGigaMessage, sendAlphaMessage, Message } from "@/lib/gemini";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -62,15 +62,16 @@ const Chat = () => {
       }
       
       // Apply saved theme
-      const savedTheme = localStorage.getItem("compibot_theme") || "lavender";
+      const savedTheme = localStorage.getItem("compibot_theme") || "black";
       const themeColors: Record<string, string> = {
+        black: "hsl(0, 0%, 0%)",
         lavender: "hsl(270, 60%, 85%)",
         mint: "hsl(150, 60%, 85%)",
         peach: "hsl(20, 80%, 85%)",
         sky: "hsl(200, 70%, 85%)",
         rose: "hsl(340, 70%, 85%)",
       };
-      document.documentElement.style.setProperty("--theme-accent", themeColors[savedTheme] || themeColors.lavender);
+      document.documentElement.style.setProperty("--theme-accent", themeColors[savedTheme] || themeColors.black);
     };
     
     checkAuth();
@@ -183,6 +184,12 @@ const Chat = () => {
       if (selectedModel === "giga") {
         const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         setGigaResponses(responses);
+      } else if (selectedModel === "alpha") {
+        const response = await sendAlphaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const assistantMessage: ChatMessage = { role: "assistant", content: response };
+        const finalMessages = [...updatedMessages, assistantMessage];
+        setMessages(finalMessages);
+        saveCurrentChat(finalMessages);
       } else {
         const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
@@ -239,6 +246,12 @@ const Chat = () => {
       if (selectedModel === "giga") {
         const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         setGigaResponses(responses);
+      } else if (selectedModel === "alpha") {
+        const response = await sendAlphaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const assistantMessage: ChatMessage = { role: "assistant", content: response };
+        const updatedMessages = [...newMessages, assistantMessage];
+        setMessages(updatedMessages);
+        saveCurrentChat(updatedMessages);
       } else {
         const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
