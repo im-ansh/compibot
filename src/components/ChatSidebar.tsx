@@ -1,4 +1,4 @@
-import { MessageSquare, Plus, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface ChatHistory {
@@ -13,9 +13,10 @@ interface ChatSidebarProps {
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
   onDeleteChat: (id: string) => void;
+  onOpenSettings: () => void;
 }
 
-const ChatSidebar = ({ chats, currentChatId, onSelectChat, onNewChat, onDeleteChat }: ChatSidebarProps) => {
+const ChatSidebar = ({ chats, currentChatId, onSelectChat, onNewChat, onDeleteChat, onOpenSettings }: ChatSidebarProps) => {
   return (
     <div className="w-64 border-r border-border bg-white h-screen flex flex-col">
       <div className="p-4 border-b border-border">
@@ -53,6 +54,13 @@ const ChatSidebar = ({ chats, currentChatId, onSelectChat, onNewChat, onDeleteCh
             </button>
           </div>
         ))}
+      </div>
+
+      <div className="p-4 border-t border-border">
+        <Button onClick={onOpenSettings} variant="outline" className="w-full">
+          <SettingsIcon className="h-4 w-4 mr-2" />
+          Settings
+        </Button>
       </div>
     </div>
   );

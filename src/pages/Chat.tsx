@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUp, Mic, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUp, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel } from "@/components/ModelSelector";
 import ChatSidebar, { ChatHistory } from "@/components/ChatSidebar";
 import WelcomeMessage from "@/components/WelcomeMessage";
+import Settings from "@/components/Settings";
 import { sendMessage, sendGigaMessage, Message } from "@/lib/gemini";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  imageUrl?: string;
 }
 
 interface StoredChat {
@@ -32,11 +34,11 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [chats, setChats] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string>("");
-  const [isRecording, setIsRecording] = useState(false);
   const [gigaResponses, setGigaResponses] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Array<{ data: string; mimeType: string }>>([]);
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -53,9 +55,22 @@ const Chat = () => {
       setUserEmail(session.user.email || null);
 
       loadChats();
+      
+      // Create initial chat ID if none exists
       if (!currentChatId) {
-        createNewChat();
+        setCurrentChatId(Date.now().toString());
       }
+      
+      // Apply saved theme
+      const savedTheme = localStorage.getItem("compibot_theme") || "lavender";
+      const themeColors: Record<string, string> = {
+        lavender: "hsl(270, 60%, 85%)",
+        mint: "hsl(150, 60%, 85%)",
+        peach: "hsl(20, 80%, 85%)",
+        sky: "hsl(200, 70%, 85%)",
+        rose: "hsl(340, 70%, 85%)",
+      };
+      document.documentElement.style.setProperty("--theme-accent", themeColors[savedTheme] || themeColors.lavender);
     };
     
     checkAuth();
@@ -85,25 +100,14 @@ const Chat = () => {
 
   const createNewChat = () => {
     const newChatId = Date.now().toString();
-    const newChat: StoredChat = {
-      id: newChatId,
-      title: "New Chat",
-      messages: [],
-      timestamp: Date.now(),
-    };
-    
-    const storedChats = localStorage.getItem("compibot_chats");
-    const allChats = storedChats ? JSON.parse(storedChats) : [];
-    allChats.unshift(newChat);
-    localStorage.setItem("compibot_chats", JSON.stringify(allChats));
-    
     setCurrentChatId(newChatId);
     setMessages([]);
     setGigaResponses([]);
-    loadChats();
   };
 
   const saveCurrentChat = (newMessages: ChatMessage[]) => {
+    if (!currentChatId || newMessages.length === 0) return;
+    
     const storedChats = localStorage.getItem("compibot_chats");
     const allChats: StoredChat[] = storedChats ? JSON.parse(storedChats) : [];
     
@@ -113,9 +117,19 @@ const Chat = () => {
       if (newMessages.length > 0 && allChats[chatIndex].title === "New Chat") {
         allChats[chatIndex].title = newMessages[0].content.slice(0, 50) + "...";
       }
-      localStorage.setItem("compibot_chats", JSON.stringify(allChats));
-      loadChats();
+    } else {
+      // Create new chat entry only when first message is sent
+      const newChat: StoredChat = {
+        id: currentChatId,
+        title: newMessages[0]?.content.slice(0, 50) + "..." || "New Chat",
+        messages: newMessages,
+        timestamp: Date.now(),
+      };
+      allChats.unshift(newChat);
     }
+    
+    localStorage.setItem("compibot_chats", JSON.stringify(allChats));
+    loadChats();
   };
 
   const selectChat = (chatId: string) => {
@@ -149,11 +163,38 @@ const Chat = () => {
     }
   };
 
-  const handleEditMessage = (index: number, newContent: string) => {
-    const updatedMessages = messages.slice(0, index + 1);
-    updatedMessages[index] = { ...updatedMessages[index], content: newContent };
+  const handleEditMessage = async (index: number, newContent: string) => {
+    const updatedMessages = messages.slice(0, index);
+    updatedMessages.push({ role: "user", content: newContent });
     setMessages(updatedMessages);
-    saveCurrentChat(updatedMessages);
+    setInput("");
+    setLoading(true);
+    setGigaResponses([]);
+
+    try {
+      const geminiMessages: Message[] = updatedMessages.map(msg => ({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.content }]
+      }));
+
+      const persona = localStorage.getItem("compibot_persona") || "helpful";
+      const customPrompt = localStorage.getItem("compibot_custom_prompt") || "";
+
+      if (selectedModel === "giga") {
+        const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        setGigaResponses(responses);
+      } else {
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const assistantMessage: ChatMessage = { role: "assistant", content: response };
+        const finalMessages = [...updatedMessages, assistantMessage];
+        setMessages(finalMessages);
+        saveCurrentChat(finalMessages);
+      }
+    } catch (error) {
+      toast({ title: "Failed to get response", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSend = async () => {
@@ -192,11 +233,14 @@ const Chat = () => {
         parts: currentMessageParts
       });
 
+      const persona = localStorage.getItem("compibot_persona") || "helpful";
+      const customPrompt = localStorage.getItem("compibot_custom_prompt") || "";
+
       if (selectedModel === "giga") {
-        const responses = await sendGigaMessage(geminiMessages, userEmail);
+        const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         setGigaResponses(responses);
       } else {
-        const response = await sendMessage(geminiMessages, selectedModel, userEmail);
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
@@ -244,31 +288,6 @@ const Chat = () => {
     navigate("/auth");
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      const chunks: BlobPart[] = [];
-
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        toast({ title: "Speech-to-text coming soon!" });
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-
-      setTimeout(() => {
-        mediaRecorder.stop();
-        setIsRecording(false);
-      }, 5000);
-    } catch (error) {
-      toast({ title: "Microphone access denied", variant: "destructive" });
-    }
-  };
-
   return (
     <div className="flex h-screen bg-white overflow-hidden">
       {isMobile && sidebarOpen && (
@@ -295,6 +314,7 @@ const Chat = () => {
             if (isMobile) setSidebarOpen(false);
           }}
           onDeleteChat={deleteChat}
+          onOpenSettings={() => setShowSettings(true)}
         />
       </div>
       
@@ -332,7 +352,8 @@ const Chat = () => {
               key={idx} 
               role={msg.role} 
               content={msg.content}
-              onEdit={msg.role === "user" && idx === messages.length - 1 ? (newContent) => handleEditMessage(idx, newContent) : undefined}
+              imageUrl={msg.imageUrl}
+              onEdit={msg.role === "user" ? (newContent) => handleEditMessage(idx, newContent) : undefined}
             />
           ))}
 
@@ -437,15 +458,6 @@ const Chat = () => {
                 rows={1}
               />
               
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                className="h-10 w-10 rounded-full flex-shrink-0 hover:bg-secondary"
-                onClick={startRecording}
-                disabled={isRecording}
-              >
-                <Mic className={`h-5 w-5 ${isRecording ? "text-red-500" : ""}`} />
-              </Button>
               {loading ? (
                 <Button 
                   size="icon" 
@@ -458,7 +470,8 @@ const Chat = () => {
               ) : (
                 <Button 
                   size="icon" 
-                  className="h-10 w-10 rounded-full flex-shrink-0 bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
+                  className="h-10 w-10 rounded-full flex-shrink-0 disabled:opacity-50"
+                  style={{ backgroundColor: "var(--theme-accent)", color: "#000" }}
                   onClick={handleSend} 
                   disabled={!input.trim() && selectedImages.length === 0}
                 >
@@ -469,6 +482,8 @@ const Chat = () => {
           </div>
         </div>
       </div>
+
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
     </div>
   );
 };

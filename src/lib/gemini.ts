@@ -37,26 +37,43 @@ export const verifyApiKey = async (apiKey: string): Promise<boolean> => {
   }
 };
 
-const getSystemPrompt = (model: AIModel): string => {
+const PERSONA_PROMPTS: Record<string, string> = {
+  helpful: "You are a helpful AI assistant. Provide clear, concise, and accurate responses.",
+  creative: "You are a creative writing assistant. Provide imaginative, engaging, and artistic responses.",
+  technical: "You are a technical expert. Provide detailed, precise, and technically accurate responses with code examples when relevant.",
+  casual: "You are a friendly and casual AI companion. Keep responses warm, conversational, and easy to understand.",
+  professional: "You are a professional business advisor. Provide formal, structured, and strategic responses.",
+};
+
+const getSystemPrompt = (model: AIModel, persona: string, customPrompt: string): string => {
+  const basePrompt = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS.helpful;
+  
+  let modelPrompt = "";
   switch (model) {
     case "lightweight":
-      return "You are a helpful AI assistant. Provide quick, concise, and clear responses. Keep answers brief and to the point.";
+      modelPrompt = " Keep answers brief and to the point.";
+      break;
     case "pro":
-      return "You are an advanced AI assistant with expertise in detailed reasoning. Provide comprehensive, well-structured, and thoroughly explained responses with examples when appropriate.";
+      modelPrompt = " Provide comprehensive, well-structured, and thoroughly explained responses with examples when appropriate.";
+      break;
     case "giga":
-      return "You are conducting in-depth research. Analyze this topic from multiple perspectives and provide a thorough, comprehensive response.";
-    default:
-      return "You are a helpful AI assistant.";
+      modelPrompt = " Analyze this topic from multiple perspectives and provide a thorough, comprehensive response.";
+      break;
   }
+  
+  const finalPrompt = basePrompt + modelPrompt;
+  return customPrompt ? `${finalPrompt}\n\nAdditional instructions: ${customPrompt}` : finalPrompt;
 };
 
 export const sendMessage = async (
   messages: Message[],
   model: AIModel,
-  userEmail: string | null
+  userEmail: string | null,
+  persona: string = "helpful",
+  customPrompt: string = ""
 ): Promise<string> => {
   const apiKey = getApiKey(userEmail);
-  const systemPrompt = getSystemPrompt(model);
+  const systemPrompt = getSystemPrompt(model, persona, customPrompt);
   
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
@@ -83,10 +100,13 @@ export const sendMessage = async (
 
 export const sendGigaMessage = async (
   messages: Message[],
-  userEmail: string | null
+  model: AIModel,
+  userEmail: string | null,
+  persona: string = "helpful",
+  customPrompt: string = ""
 ): Promise<string[]> => {
   const apiKey = getApiKey(userEmail);
-  const systemPrompt = getSystemPrompt("giga");
+  const systemPrompt = getSystemPrompt(model, persona, customPrompt);
   
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
