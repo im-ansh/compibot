@@ -1,16 +1,21 @@
 import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import remarkGfm from "remark-gfm";
 import { Copy, Check, Edit2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import "katex/dist/katex.min.css";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
+  images?: string[];
   onEdit?: (newContent: string) => void;
 }
 
-const ChatMessage = ({ role, content, onEdit }: ChatMessageProps) => {
+const ChatMessage = ({ role, content, images, onEdit }: ChatMessageProps) => {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
@@ -83,9 +88,21 @@ const ChatMessage = ({ role, content, onEdit }: ChatMessageProps) => {
   return (
     <div className="flex justify-start mb-4">
       <div className="bg-secondary rounded-2xl px-4 py-3 max-w-[80%] relative group">
-        <div className="prose prose-sm max-w-none">
-          <ReactMarkdown>{content}</ReactMarkdown>
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <ReactMarkdown 
+            remarkPlugins={[remarkMath, remarkGfm]}
+            rehypePlugins={[rehypeKatex]}
+          >
+            {content}
+          </ReactMarkdown>
         </div>
+        {images && images.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {images.map((img, idx) => (
+              <img key={idx} src={img} alt={`AI generated ${idx}`} className="rounded-lg max-w-full" />
+            ))}
+          </div>
+        )}
         <button
           onClick={handleCopy}
           className="absolute -bottom-6 right-0 flex items-center gap-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-secondary rounded text-xs text-muted-foreground"
