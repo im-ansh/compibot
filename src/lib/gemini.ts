@@ -7,7 +7,6 @@ const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-
 export interface Message {
   role: "user" | "model";
   parts: Array<{ text: string } | { inline_data: { mime_type: string; data: string } }>;
-  images?: string[];
 }
 
 const getApiKey = (userEmail: string | null): string => {
@@ -39,36 +38,16 @@ export const verifyApiKey = async (apiKey: string): Promise<boolean> => {
 };
 
 const getSystemPrompt = (model: AIModel): string => {
-  const personaId = localStorage.getItem("ai_persona") || "helpful";
-  const customPrompt = localStorage.getItem("custom_prompt") || "";
-  
-  const personas: Record<string, string> = {
-    helpful: "You are a helpful AI assistant. Provide clear, concise, and accurate responses.",
-    creative: "You are a creative AI assistant. Provide imaginative, engaging, and artistic responses with vivid descriptions.",
-    technical: "You are a technical AI assistant. Provide detailed, precise, and technical responses with code examples when relevant.",
-    friendly: "You are a friendly AI companion. Provide warm, conversational, and empathetic responses.",
-    concise: "You are a concise AI advisor. Provide brief, to-the-point responses without unnecessary elaboration.",
-  };
-
-  let basePrompt = personas[personaId] || personas.helpful;
-  
   switch (model) {
     case "lightweight":
-      basePrompt += " Keep answers brief and to the point.";
-      break;
+      return "You are a helpful AI assistant. Provide quick, concise, and clear responses. Keep answers brief and to the point.";
     case "pro":
-      basePrompt += " Provide comprehensive, well-structured responses with examples when appropriate.";
-      break;
+      return "You are an advanced AI assistant with expertise in detailed reasoning. Provide comprehensive, well-structured, and thoroughly explained responses with examples when appropriate.";
     case "giga":
-      basePrompt += " Analyze topics from multiple perspectives and provide thorough, comprehensive responses.";
-      break;
+      return "You are conducting in-depth research. Analyze this topic from multiple perspectives and provide a thorough, comprehensive response.";
+    default:
+      return "You are a helpful AI assistant.";
   }
-
-  if (customPrompt) {
-    basePrompt += ` Additional instructions: ${customPrompt}`;
-  }
-
-  return basePrompt;
 };
 
 export const sendMessage = async (
@@ -79,23 +58,10 @@ export const sendMessage = async (
   const apiKey = getApiKey(userEmail);
   const systemPrompt = getSystemPrompt(model);
   
-  // Filter out parts with empty text to avoid API errors
-  const cleanedMessages = messages.map(msg => ({
-    ...msg,
-    parts: msg.parts.filter(part => {
-      if ('text' in part) {
-        return part.text.trim().length > 0;
-      }
-      return true; // Keep inline_data parts
-    })
-  })).filter(msg => msg.parts.length > 0);
-  
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
-    ...cleanedMessages
+    ...messages
   ];
-
-  console.log("Sending to API:", JSON.stringify(formattedMessages, null, 2));
 
   const response = await fetch(`${API_URL}?key=${apiKey}`, {
     method: "POST",
@@ -108,24 +74,11 @@ export const sendMessage = async (
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error("API Error Response:", errorText);
-    throw new Error(`Failed to get response from AI: ${response.status} - ${errorText}`);
+    throw new Error("Failed to get response from AI");
   }
 
   const data = await response.json();
-  console.log("API Response:", data);
-  
-  const candidate = data.candidates[0];
-  const parts = candidate.content.parts;
-  
-  // Extract text and images
-  const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
-  const imageParts = parts.filter((p: any) => p.inline_data).map((p: any) => 
-    `data:${p.inline_data.mime_type};base64,${p.inline_data.data}`
-  );
-  
-  return JSON.stringify({ text: textParts, images: imageParts });
+  return data.candidates[0].content.parts[0].text;
 };
 
 export const sendGigaMessage = async (
@@ -135,20 +88,9 @@ export const sendGigaMessage = async (
   const apiKey = getApiKey(userEmail);
   const systemPrompt = getSystemPrompt("giga");
   
-  // Filter out parts with empty text to avoid API errors
-  const cleanedMessages = messages.map(msg => ({
-    ...msg,
-    parts: msg.parts.filter(part => {
-      if ('text' in part) {
-        return part.text.trim().length > 0;
-      }
-      return true; // Keep inline_data parts
-    })
-  })).filter(msg => msg.parts.length > 0);
-  
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
-    ...cleanedMessages
+    ...messages
   ];
 
   // Make 4 parallel requests
@@ -167,12 +109,5 @@ export const sendGigaMessage = async (
   const responses = await Promise.all(promises);
   const results = await Promise.all(responses.map(r => r.json()));
   
-  return results.map(data => {
-    const parts = data.candidates[0].content.parts;
-    const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
-    const imageParts = parts.filter((p: any) => p.inline_data).map((p: any) => 
-      `data:${p.inline_data.mime_type};base64,${p.inline_data.data}`
-    );
-    return JSON.stringify({ text: textParts, images: imageParts });
-  });
+  return results.map(data => data.candidates[0].content.parts[0].text);
 };

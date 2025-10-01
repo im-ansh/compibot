@@ -10,7 +10,6 @@ All colors MUST be HSL.
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;
-    --theme-accent: 210 100% 85%;
 
     --card: 0 0% 100%;
     --card-foreground: 0 0% 0%;
@@ -48,22 +47,5 @@ All colors MUST be HSL.
 
   body {
     @apply bg-white text-black font-sans;
-  }
-}
-
-@layer components {
-  .themed-button {
-    background-color: hsl(var(--theme-accent));
-    color: hsl(var(--foreground));
-  }
-  
-  .themed-button:hover {
-    opacity: 0.9;
-  }
-  
-  /* Handle text color for dark themes */
-  [data-theme="black"] .themed-button,
-  .themed-button[data-dark="true"] {
-    color: hsl(var(--background));
   }
 }
