@@ -1,7 +1,6 @@
 import { MessageSquare, Plus, Trash2, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import Settings from "./Settings";
+import { useNavigate } from "react-router-dom";
 
 export interface ChatHistory {
   id: string;
@@ -18,25 +17,24 @@ interface ChatSidebarProps {
 }
 
 const ChatSidebar = ({ chats, currentChatId, onSelectChat, onNewChat, onDeleteChat }: ChatSidebarProps) => {
-  const [showSettings, setShowSettings] = useState(false);
+  const navigate = useNavigate();
 
   return (
-    <>
-      <div className="w-64 border-r border-border bg-white h-screen flex flex-col">
-        <div className="p-4 border-b border-border space-y-2">
-          <Button onClick={onNewChat} className="w-full bg-black text-white hover:bg-black/90">
-            <Plus className="h-4 w-4 mr-2" />
-            New Chat
-          </Button>
-          <Button 
-            onClick={() => setShowSettings(true)}
-            variant="outline"
-            className="w-full justify-start"
-          >
-            <SettingsIcon className="h-4 w-4 mr-2" />
-            Settings
-          </Button>
-        </div>
+    <div className="w-64 border-r border-border bg-white h-screen flex flex-col">
+      <div className="p-4 border-b border-border space-y-2">
+        <Button onClick={onNewChat} className="w-full bg-black text-white hover:bg-black/90">
+          <Plus className="h-4 w-4 mr-2" />
+          New Chat
+        </Button>
+        <Button 
+          onClick={() => navigate("/settings")}
+          variant="outline"
+          className="w-full justify-start"
+        >
+          <SettingsIcon className="h-4 w-4 mr-2" />
+          Settings
+        </Button>
+      </div>
         
         <div className="flex-1 overflow-y-auto p-2">
           {chats.map((chat) => (
@@ -65,11 +63,9 @@ const ChatSidebar = ({ chats, currentChatId, onSelectChat, onNewChat, onDeleteCh
                 <Trash2 className="h-4 w-4 text-destructive" />
               </button>
             </div>
-          ))}
-        </div>
+        ))}
       </div>
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
-    </>
+    </div>
   );
 };
 
