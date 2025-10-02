@@ -159,6 +159,20 @@ const Chat = () => {
     }
   };
 
+  const addChatToProject = (chatId: string, projectId: string) => {
+    const storedChats = localStorage.getItem("compibot_chats");
+    if (storedChats) {
+      const allChats: StoredChat[] = JSON.parse(storedChats);
+      const chatIndex = allChats.findIndex(c => c.id === chatId);
+      if (chatIndex !== -1) {
+        allChats[chatIndex].projectId = projectId;
+        localStorage.setItem("compibot_chats", JSON.stringify(allChats));
+        loadChats();
+        toast({ title: "Chat added to project" });
+      }
+    }
+  };
+
   const saveCurrentChat = (newMessages: ChatMessage[]) => {
     if (!currentChatId || newMessages.length === 0) return;
     
@@ -388,6 +402,7 @@ const Chat = () => {
             if (isMobile) setSidebarOpen(false);
           }}
           onDeleteProject={deleteProject}
+          onAddChatToProject={addChatToProject}
         />
       </div>
       
