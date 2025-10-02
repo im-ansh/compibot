@@ -6,9 +6,10 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowUp, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel } from "@/components/ModelSelector";
-import ChatSidebar, { ChatHistory } from "@/components/ChatSidebar";
+import ChatSidebar, { ChatHistory, Project } from "@/components/ChatSidebar";
 import WelcomeMessage from "@/components/WelcomeMessage";
 import Settings from "@/components/Settings";
+import ProjectDialog from "@/components/ProjectDialog";
 import { sendMessage, sendGigaMessage, sendAlphaMessage, Message } from "@/lib/gemini";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -24,6 +25,7 @@ interface StoredChat {
   title: string;
   messages: ChatMessage[];
   timestamp: number;
+  projectId?: string;
 }
 
 const Chat = () => {
@@ -33,12 +35,15 @@ const Chat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [chats, setChats] = useState<ChatHistory[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string>("");
+  const [currentProjectId, setCurrentProjectId] = useState<string>("");
   const [gigaResponses, setGigaResponses] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Array<{ data: string; mimeType: string }>>([]);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -55,6 +60,7 @@ const Chat = () => {
       setUserEmail(session.user.email || null);
 
       loadChats();
+      loadProjects();
       
       // Create initial chat ID if none exists
       if (!currentChatId) {
@@ -95,7 +101,15 @@ const Chat = () => {
     const storedChats = localStorage.getItem("compibot_chats");
     if (storedChats) {
       const parsedChats: StoredChat[] = JSON.parse(storedChats);
-      setChats(parsedChats.map(c => ({ id: c.id, title: c.title, timestamp: c.timestamp })));
+      setChats(parsedChats.map(c => ({ id: c.id, title: c.title, timestamp: c.timestamp, projectId: c.projectId })));
+    }
+  };
+
+  const loadProjects = () => {
+    const storedProjects = localStorage.getItem("compibot_projects");
+    if (storedProjects) {
+      const parsedProjects: Project[] = JSON.parse(storedProjects);
+      setProjects(parsedProjects);
     }
   };
 
@@ -104,6 +118,45 @@ const Chat = () => {
     setCurrentChatId(newChatId);
     setMessages([]);
     setGigaResponses([]);
+  };
+
+  const createNewProject = (projectName: string) => {
+    const newProject: Project = {
+      id: Date.now().toString(),
+      name: projectName,
+      timestamp: Date.now(),
+    };
+
+    const storedProjects = localStorage.getItem("compibot_projects");
+    const allProjects: Project[] = storedProjects ? JSON.parse(storedProjects) : [];
+    allProjects.unshift(newProject);
+    localStorage.setItem("compibot_projects", JSON.stringify(allProjects));
+    loadProjects();
+    setCurrentProjectId(newProject.id);
+    setShowProjectDialog(false);
+  };
+
+  const deleteProject = (projectId: string) => {
+    const storedProjects = localStorage.getItem("compibot_projects");
+    if (storedProjects) {
+      const allProjects: Project[] = JSON.parse(storedProjects);
+      const filteredProjects = allProjects.filter(p => p.id !== projectId);
+      localStorage.setItem("compibot_projects", JSON.stringify(filteredProjects));
+      loadProjects();
+
+      // Delete all chats in this project
+      const storedChats = localStorage.getItem("compibot_chats");
+      if (storedChats) {
+        const allChats: StoredChat[] = JSON.parse(storedChats);
+        const filteredChats = allChats.filter(c => c.projectId !== projectId);
+        localStorage.setItem("compibot_chats", JSON.stringify(filteredChats));
+        loadChats();
+      }
+
+      if (currentProjectId === projectId) {
+        setCurrentProjectId("");
+      }
+    }
   };
 
   const saveCurrentChat = (newMessages: ChatMessage[]) => {
@@ -125,6 +178,7 @@ const Chat = () => {
         title: newMessages[0]?.content.slice(0, 50) + "..." || "New Chat",
         messages: newMessages,
         timestamp: Date.now(),
+        projectId: currentProjectId || undefined,
       };
       allChats.unshift(newChat);
     }
@@ -317,6 +371,7 @@ const Chat = () => {
       }`}>
         <ChatSidebar
           chats={chats}
+          projects={projects}
           currentChatId={currentChatId}
           onSelectChat={(id) => {
             selectChat(id);
@@ -328,6 +383,11 @@ const Chat = () => {
           }}
           onDeleteChat={deleteChat}
           onOpenSettings={() => setShowSettings(true)}
+          onCreateProject={() => {
+            setShowProjectDialog(true);
+            if (isMobile) setSidebarOpen(false);
+          }}
+          onDeleteProject={deleteProject}
         />
       </div>
       
@@ -500,6 +560,11 @@ const Chat = () => {
       </div>
 
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      <ProjectDialog 
+        open={showProjectDialog} 
+        onClose={() => setShowProjectDialog(false)} 
+        onConfirm={createNewProject} 
+      />
     </div>
   );
 };

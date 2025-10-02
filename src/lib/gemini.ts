@@ -87,6 +87,16 @@ export const sendMessage = async (
     },
     body: JSON.stringify({
       contents: formattedMessages,
+      tools: [
+        {
+          googleSearchRetrieval: {
+            dynamicRetrievalConfig: {
+              mode: "MODE_DYNAMIC",
+              dynamicThreshold: 0.7
+            }
+          }
+        }
+      ]
     }),
   });
 
@@ -122,6 +132,16 @@ export const sendGigaMessage = async (
       },
       body: JSON.stringify({
         contents: formattedMessages,
+        tools: [
+          {
+            googleSearchRetrieval: {
+              dynamicRetrievalConfig: {
+                mode: "MODE_DYNAMIC",
+                dynamicThreshold: 0.7
+              }
+            }
+          }
+        ]
       }),
     })
   );
@@ -208,6 +228,16 @@ export const sendAlphaMessage = async (
     },
     body: JSON.stringify({
       contents: finalMessages,
+      tools: [
+        {
+          googleSearchRetrieval: {
+            dynamicRetrievalConfig: {
+              mode: "MODE_DYNAMIC",
+              dynamicThreshold: 0.7
+            }
+          }
+        }
+      ]
     }),
   });
 
