@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUp, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUp, LogOut, Square, Menu, Plus, SlidersHorizontal, X, Sparkles } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel } from "@/components/ModelSelector";
 import ChatSidebar, { ChatHistory, Project } from "@/components/ChatSidebar";
@@ -13,6 +13,7 @@ import ProjectDialog from "@/components/ProjectDialog";
 import { sendMessage, sendGigaMessage, sendAlphaMessage, Message } from "@/lib/gemini";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CompanionEvent } from "@/types/companion";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -48,6 +49,8 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [companionMode, setCompanionMode] = useState(false);
+  const [companionEvents, setCompanionEvents] = useState<CompanionEvent[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -61,6 +64,7 @@ const Chat = () => {
 
       loadChats();
       loadProjects();
+      loadCompanionEvents();
       
       // Create initial chat ID if none exists
       if (!currentChatId) {
@@ -111,6 +115,60 @@ const Chat = () => {
       const parsedProjects: Project[] = JSON.parse(storedProjects);
       setProjects(parsedProjects);
     }
+  };
+
+  const loadCompanionEvents = () => {
+    const storedEvents = localStorage.getItem("compibot_companion_events");
+    if (storedEvents) {
+      const parsedEvents: CompanionEvent[] = JSON.parse(storedEvents);
+      setCompanionEvents(parsedEvents.map(e => ({ ...e, date: new Date(e.date) })));
+    }
+  };
+
+  const saveCompanionEvents = (events: CompanionEvent[]) => {
+    localStorage.setItem("compibot_companion_events", JSON.stringify(events));
+    setCompanionEvents(events);
+  };
+
+  const toggleEventComplete = (eventId: string) => {
+    const updatedEvents = companionEvents.map(event =>
+      event.id === eventId ? { ...event, completed: !event.completed } : event
+    );
+    saveCompanionEvents(updatedEvents);
+  };
+
+  const parseCompanionResponse = (response: string): CompanionEvent | null => {
+    const reminderMatch = response.match(/reminder.*?["'](.+?)["'].*?(\d{4}-\d{2}-\d{2})|set (?:a )?reminder.*?for\s+(.+?)\s+on\s+(\d{4}-\d{2}-\d{2})/i);
+    const alarmMatch = response.match(/alarm.*?["'](.+?)["'].*?(\d{4}-\d{2}-\d{2})|set (?:an? )?alarm.*?for\s+(.+?)\s+(?:on|at)\s+(\d{4}-\d{2}-\d{2})/i);
+    const eventMatch = response.match(/event.*?["'](.+?)["'].*?(\d{4}-\d{2}-\d{2})|create (?:an? )?event.*?called\s+(.+?)\s+on\s+(\d{4}-\d{2}-\d{2})/i);
+
+    if (reminderMatch) {
+      return {
+        id: Date.now().toString(),
+        type: "reminder",
+        title: reminderMatch[1] || reminderMatch[3] || "New Reminder",
+        date: new Date(reminderMatch[2] || reminderMatch[4]),
+        completed: false
+      };
+    } else if (alarmMatch) {
+      return {
+        id: Date.now().toString(),
+        type: "alarm",
+        title: alarmMatch[1] || alarmMatch[3] || "New Alarm",
+        date: new Date(alarmMatch[2] || alarmMatch[4]),
+        completed: false
+      };
+    } else if (eventMatch) {
+      return {
+        id: Date.now().toString(),
+        type: "event",
+        title: eventMatch[1] || eventMatch[3] || "New Event",
+        date: new Date(eventMatch[2] || eventMatch[4]),
+        completed: false
+      };
+    }
+
+    return null;
   };
 
   const createNewChat = () => {
@@ -298,6 +356,7 @@ const Chat = () => {
     const userMessage: ChatMessage = { role: "user", content: input };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
+    const currentInput = input;
     setInput("");
     setLoading(true);
     setGigaResponses([]);
@@ -352,6 +411,19 @@ const Chat = () => {
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
         saveCurrentChat(updatedMessages);
+
+        // Parse companion mode requests
+        if (companionMode) {
+          const newEvent = parseCompanionResponse(currentInput + " " + response);
+          if (newEvent) {
+            const updatedEvents = [...companionEvents, newEvent];
+            saveCompanionEvents(updatedEvents);
+            toast({ 
+              title: `${newEvent.type.charAt(0).toUpperCase() + newEvent.type.slice(1)} created`, 
+              description: `"${newEvent.title}" scheduled for ${newEvent.date.toLocaleDateString()}` 
+            });
+          }
+        }
       }
       
       setSelectedImages([]);
@@ -430,6 +502,8 @@ const Chat = () => {
           onDeleteProject={deleteProject}
           onAddChatToProject={addChatToProject}
           onMoveChatToProject={moveChatToProject}
+          companionEvents={companionEvents}
+          onToggleEventComplete={toggleEventComplete}
         />
       </div>
       
@@ -534,6 +608,23 @@ const Chat = () => {
               </div>
             )}
             
+            <div className="flex items-center gap-2 mb-2">
+              <Button
+                variant={companionMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCompanionMode(!companionMode)}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Companion Mode
+              </Button>
+              {companionMode && (
+                <span className="text-xs text-muted-foreground">
+                  Ask me to set reminders, alarms, or events
+                </span>
+              )}
+            </div>
+
             <div className="relative flex items-center gap-2 bg-background border border-input rounded-[2rem] p-2 shadow-sm">
               <input
                 ref={fileInputRef}
