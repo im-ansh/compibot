@@ -2,7 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Copy, Check, Edit2 } from "lucide-react";
+import { Copy, Check, Edit2, Download } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -12,9 +12,10 @@ interface ChatMessageProps {
   content: string;
   imageUrl?: string;
   onEdit?: (newContent: string) => void;
+  isCodeOnly?: boolean;
 }
 
-const ChatMessage = ({ role, content, imageUrl, onEdit }: ChatMessageProps) => {
+const ChatMessage = ({ role, content, imageUrl, onEdit, isCodeOnly }: ChatMessageProps) => {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
@@ -24,6 +25,19 @@ const ChatMessage = ({ role, content, imageUrl, onEdit }: ChatMessageProps) => {
     setCopied(true);
     toast({ title: "Copied to clipboard" });
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `code-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Code downloaded" });
   };
 
   const handleSaveEdit = () => {
@@ -100,23 +114,35 @@ const ChatMessage = ({ role, content, imageUrl, onEdit }: ChatMessageProps) => {
             <img src={imageUrl} alt="AI generated" className="rounded-lg max-w-full" />
           </div>
         )}
-        <button
-          onClick={handleCopy}
-          className="absolute -bottom-6 right-0 flex items-center gap-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-secondary rounded text-xs text-muted-foreground"
-          title="Copy response"
-        >
-          {copied ? (
-            <>
-              <Check className="h-3 w-3 text-green-600" />
-              <span className="text-green-600">Copied</span>
-            </>
-          ) : (
-            <>
-              <Copy className="h-3 w-3" />
-              <span>Copy</span>
-            </>
+        <div className="absolute -bottom-6 right-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isCodeOnly && (
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-1 p-1 hover:bg-secondary rounded text-xs text-muted-foreground"
+              title="Download code"
+            >
+              <Download className="h-3 w-3" />
+              <span>Download</span>
+            </button>
           )}
-        </button>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1 p-1 hover:bg-secondary rounded text-xs text-muted-foreground"
+            title="Copy response"
+          >
+            {copied ? (
+              <>
+                <Check className="h-3 w-3 text-green-600" />
+                <span className="text-green-600">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

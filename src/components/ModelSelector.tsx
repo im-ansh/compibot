@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
 
-export type AIModel = "lightweight" | "pro" | "giga" | "alpha";
+export type AIModel = "lightweight" | "pro" | "giga" | "alpha" | "engineer";
 
 interface ModelSelectorProps {
   selectedModel: AIModel;
@@ -20,6 +20,7 @@ const ModelSelector = ({ selectedModel, onModelChange }: ModelSelectorProps) => 
     pro: "Pro",
     giga: "Giga",
     alpha: "Alpha",
+    engineer: "Engineer",
   };
 
   return (
@@ -42,6 +43,9 @@ const ModelSelector = ({ selectedModel, onModelChange }: ModelSelectorProps) => 
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onModelChange("alpha")}>
           Alpha - AI-enhanced prompts
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onModelChange("engineer")}>
+          Engineer - Code-only responses
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -59,6 +59,8 @@ const getSystemPrompt = (model: AIModel, persona: string, customPrompt: string):
     case "giga":
       modelPrompt = " Analyze this topic from multiple perspectives and provide a thorough, comprehensive response.";
       break;
+    case "engineer":
+      return "You are a code generation expert. Respond ONLY with code. Do not include any explanations, comments, or text outside of the code itself. The code should be clean, well-structured, and ready to use.";
   }
   
   const finalPrompt = basePrompt + modelPrompt;

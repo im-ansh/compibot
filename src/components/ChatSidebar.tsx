@@ -1,4 +1,4 @@
-import { MessageSquare, Plus, Trash2, Settings as SettingsIcon, ChevronDown, ChevronRight, FolderPlus, FolderInput } from "lucide-react";
+import { MessageSquare, Plus, Trash2, Settings as SettingsIcon, ChevronDown, ChevronRight, FolderPlus, FolderInput, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -26,11 +26,13 @@ interface ChatSidebarProps {
   onCreateProject: () => void;
   onDeleteProject: (id: string) => void;
   onAddChatToProject: (chatId: string, projectId: string) => void;
+  onMoveChatToProject: (chatId: string, newProjectId: string) => void;
 }
 
-const ChatSidebar = ({ chats, projects, currentChatId, onSelectChat, onNewChat, onDeleteChat, onOpenSettings, onCreateProject, onDeleteProject, onAddChatToProject }: ChatSidebarProps) => {
+const ChatSidebar = ({ chats, projects, currentChatId, onSelectChat, onNewChat, onDeleteChat, onOpenSettings, onCreateProject, onDeleteProject, onAddChatToProject, onMoveChatToProject }: ChatSidebarProps) => {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [showProjectSelector, setShowProjectSelector] = useState<string | null>(null);
+  const [showMoveSelector, setShowMoveSelector] = useState<string | null>(null);
   const toggleProject = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
     if (newExpanded.has(projectId)) {
@@ -106,7 +108,47 @@ const ChatSidebar = ({ chats, projects, currentChatId, onSelectChat, onNewChat, 
                         <MessageSquare className="h-3 w-3 flex-shrink-0" />
                         <span className="truncate text-xs">{chat.title}</span>
                       </button>
-                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowMoveSelector(chat.id);
+                          }}
+                          className="p-1 hover:bg-primary/10 rounded transition-opacity"
+                          title="Move to another project"
+                        >
+                          <ArrowRightLeft className="h-3 w-3" />
+                        </button>
+                        {showMoveSelector === chat.id && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40"
+                              onClick={() => setShowMoveSelector(null)}
+                            />
+                            <div className="absolute right-0 top-8 z-50 bg-white border border-border rounded-lg shadow-lg p-2 min-w-[200px]">
+                              <div className="text-xs font-semibold mb-2 px-2">Move to Project</div>
+                              {projects.filter(p => p.id !== project.id).length === 0 ? (
+                                <div className="text-xs text-muted-foreground px-2 py-1">
+                                  No other projects
+                                </div>
+                              ) : (
+                                projects.filter(p => p.id !== project.id).map((targetProject) => (
+                                  <button
+                                    key={targetProject.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onMoveChatToProject(chat.id, targetProject.id);
+                                      setShowMoveSelector(null);
+                                    }}
+                                    className="w-full text-left px-2 py-1.5 text-sm hover:bg-secondary rounded transition-colors"
+                                  >
+                                    {targetProject.name}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

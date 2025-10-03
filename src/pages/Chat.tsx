@@ -173,6 +173,20 @@ const Chat = () => {
     }
   };
 
+  const moveChatToProject = (chatId: string, newProjectId: string) => {
+    const storedChats = localStorage.getItem("compibot_chats");
+    if (storedChats) {
+      const allChats: StoredChat[] = JSON.parse(storedChats);
+      const chatIndex = allChats.findIndex(c => c.id === chatId);
+      if (chatIndex !== -1) {
+        allChats[chatIndex].projectId = newProjectId;
+        localStorage.setItem("compibot_chats", JSON.stringify(allChats));
+        loadChats();
+        toast({ title: "Chat moved to project" });
+      }
+    }
+  };
+
   const saveCurrentChat = (newMessages: ChatMessage[]) => {
     if (!currentChatId || newMessages.length === 0) return;
     
@@ -258,6 +272,12 @@ const Chat = () => {
         const finalMessages = [...updatedMessages, assistantMessage];
         setMessages(finalMessages);
         saveCurrentChat(finalMessages);
+      } else if (selectedModel === "engineer") {
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const assistantMessage: ChatMessage = { role: "assistant", content: response };
+        const finalMessages = [...updatedMessages, assistantMessage];
+        setMessages(finalMessages);
+        saveCurrentChat(finalMessages);
       } else {
         const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
@@ -316,6 +336,12 @@ const Chat = () => {
         setGigaResponses(responses);
       } else if (selectedModel === "alpha") {
         const response = await sendAlphaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const assistantMessage: ChatMessage = { role: "assistant", content: response };
+        const updatedMessages = [...newMessages, assistantMessage];
+        setMessages(updatedMessages);
+        saveCurrentChat(updatedMessages);
+      } else if (selectedModel === "engineer") {
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
@@ -403,6 +429,7 @@ const Chat = () => {
           }}
           onDeleteProject={deleteProject}
           onAddChatToProject={addChatToProject}
+          onMoveChatToProject={moveChatToProject}
         />
       </div>
       
@@ -442,6 +469,7 @@ const Chat = () => {
               content={msg.content}
               imageUrl={msg.imageUrl}
               onEdit={msg.role === "user" ? (newContent) => handleEditMessage(idx, newContent) : undefined}
+              isCodeOnly={selectedModel === "engineer" && msg.role === "assistant"}
             />
           ))}
 
