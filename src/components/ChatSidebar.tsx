@@ -1,9 +1,6 @@
-import { MessageSquare, Plus, Trash2, Settings as SettingsIcon, ChevronDown, ChevronRight, FolderPlus, FolderInput, ArrowRightLeft, Calendar } from "lucide-react";
+import { MessageSquare, Plus, Trash2, Settings as SettingsIcon, ChevronDown, ChevronRight, FolderPlus, FolderInput, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import CompanionCalendar from "./CompanionCalendar";
-import { CompanionEvent } from "@/types/companion";
 
 export interface ChatHistory {
   id: string;
@@ -30,15 +27,12 @@ interface ChatSidebarProps {
   onDeleteProject: (id: string) => void;
   onAddChatToProject: (chatId: string, projectId: string) => void;
   onMoveChatToProject: (chatId: string, newProjectId: string) => void;
-  companionEvents: CompanionEvent[];
-  onToggleEventComplete: (eventId: string) => void;
 }
 
-const ChatSidebar = ({ chats, projects, currentChatId, onSelectChat, onNewChat, onDeleteChat, onOpenSettings, onCreateProject, onDeleteProject, onAddChatToProject, onMoveChatToProject, companionEvents, onToggleEventComplete }: ChatSidebarProps) => {
+const ChatSidebar = ({ chats, projects, currentChatId, onSelectChat, onNewChat, onDeleteChat, onOpenSettings, onCreateProject, onDeleteProject, onAddChatToProject, onMoveChatToProject }: ChatSidebarProps) => {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [showProjectSelector, setShowProjectSelector] = useState<string | null>(null);
   const [showMoveSelector, setShowMoveSelector] = useState<string | null>(null);
-  const [calendarOpen, setCalendarOpen] = useState(false);
   const toggleProject = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
     if (newExpanded.has(projectId)) {
@@ -250,32 +244,7 @@ const ChatSidebar = ({ chats, projects, currentChatId, onSelectChat, onNewChat, 
         )}
       </div>
 
-      <div className="p-4 border-t border-border space-y-2">
-        <Collapsible open={calendarOpen} onOpenChange={setCalendarOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <span>Calendar</span>
-              </div>
-              {companionEvents.length > 0 && (
-                <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
-                  {companionEvents.length}
-                </span>
-              )}
-              <ChevronDown className={`h-4 w-4 transition-transform ${calendarOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-2 border rounded-lg bg-card">
-              <CompanionCalendar 
-                events={companionEvents} 
-                onToggleComplete={onToggleEventComplete}
-              />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-        
+      <div className="p-4 border-t border-border">
         <Button onClick={onOpenSettings} variant="outline" className="w-full">
           <SettingsIcon className="h-4 w-4 mr-2" />
           Settings
