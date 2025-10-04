@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { ArrowUp, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
 import ChatMessage from "@/components/ChatMessage";
-import ModelSelector, { AIModel } from "@/components/ModelSelector";
+import ModelSelector, { AIModel, CoFounderMode } from "@/components/ModelSelector";
+import UserRetentionChart from "@/components/UserRetentionChart";
 import ChatSidebar, { ChatHistory, Project } from "@/components/ChatSidebar";
 import WelcomeMessage from "@/components/WelcomeMessage";
 import Settings from "@/components/Settings";
@@ -18,6 +19,11 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   imageUrl?: string;
+  retentionData?: {
+    score: number;
+    screenshotCount: number;
+    insights: string[];
+  };
 }
 
 interface StoredChat {
@@ -31,6 +37,7 @@ interface StoredChat {
 const Chat = () => {
   const navigate = useNavigate();
   const [selectedModel, setSelectedModel] = useState<AIModel>("lightweight");
+  const [coFounderMode, setCoFounderMode] = useState<CoFounderMode>("founder");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -264,22 +271,49 @@ const Chat = () => {
       const customPrompt = localStorage.getItem("compibot_custom_prompt") || "";
 
       if (selectedModel === "giga") {
-        const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         setGigaResponses(responses);
       } else if (selectedModel === "alpha") {
-        const response = await sendAlphaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const response = await sendAlphaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const finalMessages = [...updatedMessages, assistantMessage];
         setMessages(finalMessages);
         saveCurrentChat(finalMessages);
       } else if (selectedModel === "engineer") {
-        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const finalMessages = [...updatedMessages, assistantMessage];
         setMessages(finalMessages);
         saveCurrentChat(finalMessages);
+      } else if (selectedModel === "co-founder" && coFounderMode === "user") {
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
+        try {
+          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsedData = JSON.parse(jsonMatch[0]);
+            const assistantMessage: ChatMessage = { 
+              role: "assistant", 
+              content: response,
+              retentionData: {
+                score: parsedData.score || 0,
+                screenshotCount: selectedImages.length,
+                insights: parsedData.insights || []
+              }
+            };
+            const finalMessages = [...updatedMessages, assistantMessage];
+            setMessages(finalMessages);
+            saveCurrentChat(finalMessages);
+          } else {
+            throw new Error("No JSON found in response");
+          }
+        } catch {
+          const assistantMessage: ChatMessage = { role: "assistant", content: response };
+          const finalMessages = [...updatedMessages, assistantMessage];
+          setMessages(finalMessages);
+          saveCurrentChat(finalMessages);
+        }
       } else {
-        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const finalMessages = [...updatedMessages, assistantMessage];
         setMessages(finalMessages);
@@ -332,22 +366,49 @@ const Chat = () => {
       const customPrompt = localStorage.getItem("compibot_custom_prompt") || "";
 
       if (selectedModel === "giga") {
-        const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const responses = await sendGigaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         setGigaResponses(responses);
       } else if (selectedModel === "alpha") {
-        const response = await sendAlphaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const response = await sendAlphaMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
         saveCurrentChat(updatedMessages);
       } else if (selectedModel === "engineer") {
-        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
         saveCurrentChat(updatedMessages);
+      } else if (selectedModel === "co-founder" && coFounderMode === "user") {
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
+        try {
+          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsedData = JSON.parse(jsonMatch[0]);
+            const assistantMessage: ChatMessage = { 
+              role: "assistant", 
+              content: response,
+              retentionData: {
+                score: parsedData.score || 0,
+                screenshotCount: selectedImages.length,
+                insights: parsedData.insights || []
+              }
+            };
+            const updatedMessages = [...newMessages, assistantMessage];
+            setMessages(updatedMessages);
+            saveCurrentChat(updatedMessages);
+          } else {
+            throw new Error("No JSON found in response");
+          }
+        } catch {
+          const assistantMessage: ChatMessage = { role: "assistant", content: response };
+          const updatedMessages = [...newMessages, assistantMessage];
+          setMessages(updatedMessages);
+          saveCurrentChat(updatedMessages);
+        }
       } else {
-        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt);
+        const response = await sendMessage(geminiMessages, selectedModel, userEmail, persona, customPrompt, coFounderMode);
         const assistantMessage: ChatMessage = { role: "assistant", content: response };
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
@@ -463,14 +524,20 @@ const Chat = () => {
           )}
           
           {messages.map((msg, idx) => (
-            <ChatMessage 
-              key={idx} 
-              role={msg.role} 
-              content={msg.content}
-              imageUrl={msg.imageUrl}
-              onEdit={msg.role === "user" ? (newContent) => handleEditMessage(idx, newContent) : undefined}
-              isCodeOnly={selectedModel === "engineer" && msg.role === "assistant"}
-            />
+            <div key={idx}>
+              <ChatMessage 
+                role={msg.role} 
+                content={msg.content}
+                imageUrl={msg.imageUrl}
+                onEdit={msg.role === "user" ? (newContent) => handleEditMessage(idx, newContent) : undefined}
+                isCodeOnly={selectedModel === "engineer" && msg.role === "assistant"}
+              />
+              {msg.retentionData && (
+                <div className="mt-4 mb-6">
+                  <UserRetentionChart data={msg.retentionData} />
+                </div>
+              )}
+            </div>
           ))}
 
           {gigaResponses.length > 0 && (
@@ -507,10 +574,15 @@ const Chat = () => {
           <div className="max-w-4xl mx-auto space-y-3">
             {showModelSelector && (
               <div className="mb-2">
-                <ModelSelector selectedModel={selectedModel} onModelChange={(model) => {
-                  setSelectedModel(model);
-                  setShowModelSelector(false);
-                }} />
+                <ModelSelector 
+                  selectedModel={selectedModel} 
+                  onModelChange={(model) => {
+                    setSelectedModel(model);
+                    setShowModelSelector(false);
+                  }}
+                  coFounderMode={coFounderMode}
+                  onCoFounderModeChange={setCoFounderMode}
+                />
               </div>
             )}
             

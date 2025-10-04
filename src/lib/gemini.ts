@@ -45,7 +45,23 @@ const PERSONA_PROMPTS: Record<string, string> = {
   professional: "You are a professional business advisor. Provide formal, structured, and strategic responses.",
 };
 
-const getSystemPrompt = (model: AIModel, persona: string, customPrompt: string): string => {
+const getSystemPrompt = (model: AIModel, persona: string, customPrompt: string, coFounderMode?: string): string => {
+  if (model === "engineer") {
+    return "You are a code generation expert. Respond ONLY with code. Do not include any explanations, comments, or text outside of the code itself. The code should be clean, well-structured, and ready to use.";
+  }
+
+  if (model === "co-founder") {
+    if (coFounderMode === "user") {
+      return "You are an expert UX/UI analyst and user retention specialist for SaaS and mobile apps. Analyze the uploaded screenshots and provide: 1) A user retention score out of 100, 2) Detailed insights about design quality, user flow, engagement elements, and potential friction points. Format your response as JSON with keys: score (number), insights (array of strings). Be critical but constructive.";
+    }
+    if (coFounderMode === "founder") {
+      return "You are an experienced startup co-founder and product strategist. Engage in thoughtful discussions about product ideas, execution strategies, market fit, growth tactics, and business models. Ask probing questions, challenge assumptions constructively, and provide actionable advice based on startup best practices.";
+    }
+    if (coFounderMode === "idea") {
+      return "You are a creative product manager specializing in SaaS and mobile app features. Based on the user's app idea, generate innovative, actionable feature suggestions that would enhance the product. Focus on user value, technical feasibility, and competitive differentiation. Provide features in a structured list with brief descriptions.";
+    }
+  }
+
   const basePrompt = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS.helpful;
   
   let modelPrompt = "";
@@ -59,8 +75,6 @@ const getSystemPrompt = (model: AIModel, persona: string, customPrompt: string):
     case "giga":
       modelPrompt = " Analyze this topic from multiple perspectives and provide a thorough, comprehensive response.";
       break;
-    case "engineer":
-      return "You are a code generation expert. Respond ONLY with code. Do not include any explanations, comments, or text outside of the code itself. The code should be clean, well-structured, and ready to use.";
   }
   
   const finalPrompt = basePrompt + modelPrompt;
@@ -72,10 +86,11 @@ export const sendMessage = async (
   model: AIModel,
   userEmail: string | null,
   persona: string = "helpful",
-  customPrompt: string = ""
+  customPrompt: string = "",
+  coFounderMode?: string
 ): Promise<string> => {
   const apiKey = getApiKey(userEmail);
-  const systemPrompt = getSystemPrompt(model, persona, customPrompt);
+  const systemPrompt = getSystemPrompt(model, persona, customPrompt, coFounderMode);
   
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
@@ -105,10 +120,11 @@ export const sendGigaMessage = async (
   model: AIModel,
   userEmail: string | null,
   persona: string = "helpful",
-  customPrompt: string = ""
+  customPrompt: string = "",
+  coFounderMode?: string
 ): Promise<string[]> => {
   const apiKey = getApiKey(userEmail);
-  const systemPrompt = getSystemPrompt(model, persona, customPrompt);
+  const systemPrompt = getSystemPrompt(model, persona, customPrompt, coFounderMode);
   
   const formattedMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
@@ -139,7 +155,8 @@ export const sendAlphaMessage = async (
   model: AIModel,
   userEmail: string | null,
   persona: string = "helpful",
-  customPrompt: string = ""
+  customPrompt: string = "",
+  coFounderMode?: string
 ): Promise<string> => {
   const apiKey = getApiKey(userEmail);
   
@@ -195,7 +212,7 @@ export const sendAlphaMessage = async (
   const improvedPrompt = functionCall?.args?.improved_prompt || userPrompt;
 
   // Step 2: Send the improved prompt to get the final response
-  const systemPrompt = getSystemPrompt(model, persona, customPrompt);
+  const systemPrompt = getSystemPrompt(model, persona, customPrompt, coFounderMode);
   
   const finalMessages = [
     { role: "user", parts: [{ text: systemPrompt }] },
