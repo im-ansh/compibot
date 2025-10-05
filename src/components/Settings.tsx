@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface SettingsProps {
   onClose: () => void;
+  onLogout: () => void;
 }
 
 const PERSONAS = [
@@ -26,7 +27,7 @@ const THEME_COLORS = [
   { id: "rose", name: "Rose", color: "hsl(340, 70%, 85%)" },
 ];
 
-const Settings = ({ onClose }: SettingsProps) => {
+const Settings = ({ onClose, onLogout }: SettingsProps) => {
   const [selectedPersona, setSelectedPersona] = useState(
     localStorage.getItem("compibot_persona") || "helpful"
   );
@@ -113,8 +114,11 @@ const Settings = ({ onClose }: SettingsProps) => {
             </RadioGroup>
           </div>
 
-          {/* Save Button */}
-          <div className="flex justify-end pt-4 border-t border-border">
+          {/* Action Buttons */}
+          <div className="flex justify-between pt-4 border-t border-border">
+            <Button onClick={onLogout} variant="destructive">
+              Logout
+            </Button>
             <Button onClick={handleSave} className="bg-black text-white hover:bg-black/90">
               Save Changes
             </Button>

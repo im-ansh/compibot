@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUp, LogOut, Square, Menu, Plus, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUp, Square, Menu, Plus, SlidersHorizontal, X, MessageCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import ChatMessage from "@/components/ChatMessage";
 import ModelSelector, { AIModel, CoFounderMode } from "@/components/ModelSelector";
 import UserRetentionChart from "@/components/UserRetentionChart";
@@ -52,6 +53,7 @@ const Chat = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [temporaryMode, setTemporaryMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -195,6 +197,7 @@ const Chat = () => {
   };
 
   const saveCurrentChat = (newMessages: ChatMessage[]) => {
+    if (temporaryMode) return; // Don't save in temporary mode
     if (!currentChatId || newMessages.length === 0) return;
     
     const storedChats = localStorage.getItem("compibot_chats");
@@ -510,10 +513,22 @@ const Chat = () => {
             <img src="/compibot-icon.png" alt="Compibot" className="h-8 w-8" />
             <h1 className="font-serif text-2xl">Compibot</h1>
           </div>
-          <Button variant="ghost" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Checkbox 
+              id="temporary-mode"
+              checked={temporaryMode}
+              onCheckedChange={(checked) => setTemporaryMode(checked as boolean)}
+              className="h-5 w-5"
+            />
+            <label 
+              htmlFor="temporary-mode" 
+              className="text-sm cursor-pointer flex items-center gap-1"
+              title="Temporary mode - chats won't be saved"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Temporary</span>
+            </label>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -674,7 +689,7 @@ const Chat = () => {
         </div>
       </div>
 
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} onLogout={handleLogout} />}
       <ProjectDialog 
         open={showProjectDialog} 
         onClose={() => setShowProjectDialog(false)} 
